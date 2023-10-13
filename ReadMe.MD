@@ -10,7 +10,7 @@
 
   - terraform apply
 
-##  2. Create EKS Cluster and a Node group ( [06-07] terraform files)
+###  2. Create EKS Cluster and a Node group ( [06-07] terraform files)
 
   - terraform apply
 
@@ -19,6 +19,11 @@
 
      - aws eks update-kubeconfig --name test --region eu-north-1
 
+###  3. Create Karpenter Controller IAM Role ( [08-09] terraform files and controller-trust-policy.json file)
+
+  - terraform init
+
+  - terraform apply
 
 
 ### Resources
