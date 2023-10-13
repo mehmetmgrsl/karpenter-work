@@ -50,6 +50,12 @@
 
   - A new node that has 5 new pods will be created.
 
+###  7. After the tests - Delete all the AWS Resources that we have created
+
+  - terraform plan -destroy
+
+  - terraform apply -destroy
+
 ### Resources
 1. https://karpenter.sh/
 2. https://github.com/aws/karpenter
