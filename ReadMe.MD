@@ -4,10 +4,11 @@
 
 - It is a valuable tool for automating and optimizing node management in Kubernetes clusters, providing better resource utilization, scalability, and reliability. That's why it helps to reduce the cost as well.
 
-### Precondition
-- K8S Cluster(s)
+###  1. Create AWS VPC ( [00-05] terraform files)
 
-### Installation
+  - terraform init
+
+  - terraform apply
 
 
 ### Resources
