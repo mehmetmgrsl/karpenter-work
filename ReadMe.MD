@@ -14,6 +14,11 @@
 
   - terraform apply
 
+  - to connect to the cluster you need to update the Kubernetes context:
+
+
+     - aws eks update-kubeconfig --name test --region eu-north-1
+
 
 
 ### Resources
