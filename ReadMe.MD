@@ -43,6 +43,13 @@
 
  ```kubectl apply -f provisioner.yaml```
 
+
+###  6. Demo: Automatic Node Provisioning
+
+ ```kubectl apply -f deployment.yaml```
+
+  - A new node that has 5 new pods will be created.
+
 ### Resources
 1. https://karpenter.sh/
 2. https://github.com/aws/karpenter
