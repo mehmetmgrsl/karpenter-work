@@ -10,6 +10,11 @@
 
   - terraform apply
 
+##  2. Create EKS Cluster and a Node group ( [06-07] terraform files)
+
+  - terraform apply
+
+
 
 ### Resources
 1. https://karpenter.sh/
