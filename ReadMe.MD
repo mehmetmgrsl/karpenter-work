@@ -25,6 +25,19 @@
 
   - terraform apply
 
+###  4. Deploy Karpenter to EKS ( [10] terraform file)
+
+  - terraform apply
+
+  - Check if the helm has been deployed successfully.
+
+     - 
+       ```
+       helm list -A
+       NAME     	NAMESPACE	REVISION	UPDATED                                 	STATUS  	CHART           	APP VERSION
+       karpenter	karpenter	1       	2023-10-13 16:08:27.073106337 +0200 CEST	deployed	karpenter-0.16.3	0.16.3
+       ```    
+
 
 ### Resources
 1. https://karpenter.sh/
