@@ -39,6 +39,10 @@
        ```    
 
 
+###  5. Create Karpenter Provisioner
+
+ ```kubectl apply -f provisioner.yaml```
+
 ### Resources
 1. https://karpenter.sh/
 2. https://github.com/aws/karpenter
