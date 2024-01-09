@@ -66,6 +66,20 @@
 
   - terraform apply -destroy
 
+### EKS Node Viewer (9*)
+
+- eks-node-viewer is a tool for visualizing dynamic node usage within a cluster. 
+  - It displays the scheduled pod resource requests vs the allocatable capacity on the node. 
+  - It does not look at the actual pod resource usage.
+
+- Installation
+  - brew tap aws/tap
+  - brew install eks-node-viewer
+
+- Usage
+  - eks-node-viewer
+
+
 ### Resources
 1* https://karpenter.sh/
 
@@ -82,3 +96,5 @@
 7* [Fine-Tuning EKS Clusters with Karpenter: DevOps Insights - Yevhen Chemerys](https://medium.com/@yevvhen/fine-tuning-eks-clusters-with-karpenter-devops-insights-159689e5160e)
 
 8* [Karpenter: EKS Cluster Autoscaling](https://www.youtube.com/watch?v=PtsKPlYw3f4&t=1190s)
+
+9* https://github.com/awslabs/eks-node-viewer
