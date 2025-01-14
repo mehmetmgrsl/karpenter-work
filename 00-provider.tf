@@ -3,7 +3,7 @@ variable "cluster_name" {
 }
 
 provider "aws" {
-  region = "eu-north-1"
+  region = "eu-west-1"
 }
 
 terraform {

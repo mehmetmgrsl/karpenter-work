@@ -27,7 +27,7 @@
   - to connect to the cluster you need to update the Kubernetes context:
 
 
-     - aws eks update-kubeconfig --name test --region eu-north-1
+     - aws eks update-kubeconfig --name test --region eu-west-1
 
 ###  3. Create Karpenter Controller IAM Role ( [08-09] terraform files and controller-trust-policy.json file)
 

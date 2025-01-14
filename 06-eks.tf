@@ -34,10 +34,10 @@ resource "aws_eks_cluster" "cluster" {
     public_access_cidrs     = ["0.0.0.0/0"]
 
     subnet_ids = [
-      aws_subnet.private-eu-north-1a.id,
-      aws_subnet.private-eu-north-1b.id,
-      aws_subnet.public-eu-north-1a.id,
-      aws_subnet.public-eu-north-1b.id
+      aws_subnet.private-eu-west-1a.id,
+      aws_subnet.private-eu-west-1b.id,
+      aws_subnet.public-eu-west-1a.id,
+      aws_subnet.public-eu-west-1b.id
     ]
   }
 
