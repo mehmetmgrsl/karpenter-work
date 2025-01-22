@@ -1,5 +1,3 @@
-# WIP
-
 ### Why Karpenter?
 
 - It is a valuable tool for automating and optimizing node management in Kubernetes clusters, providing better resource utilization, scalability, and reliability. That's why it helps to reduce the cost as well.
@@ -13,6 +11,12 @@
 - Karpenter actively monitors free Node capacity, rescheduling existing Pods to minimize the provisioned Node capacity.
 
 - ![How It works](howitworks.png) (8*)
+
+
+### Karpenter YAMLs (10*)
+
+- ![Karpenter](karpenter01.png)
+
 
 ###  1. Create AWS VPC ( [00-05] terraform files)
 
@@ -49,9 +53,9 @@
        ```    
 
 
-###  5. Create Karpenter Provisioner
+###  5. Create Karpenter NodePool
 
- ```kubectl apply -f provisioner.yaml```
+ ```kubectl apply -f nodepool.yaml```
 
 
 ###  6. Demo: Automatic Node Provisioning
@@ -98,3 +102,5 @@
 8* [Karpenter: EKS Cluster Autoscaling](https://www.youtube.com/watch?v=PtsKPlYw3f4&t=1190s)
 
 9* https://github.com/awslabs/eks-node-viewer
+
+10* [Karpenter for Kubernetes Tutorial with Demo - Cloud with Raj](https://www.youtube.com/watch?v=cc2leue9P3s)
