@@ -191,8 +191,6 @@ EOF
 
 ###  7. After the tests - Delete all the AWS Resources that we have created
 
-  - kubectl delete node "${NODE_NAME}"
-
  ```
 helm uninstall karpenter --namespace "${KARPENTER_NAMESPACE}"
 aws cloudformation delete-stack --stack-name "Karpenter-${CLUSTER_NAME}"
