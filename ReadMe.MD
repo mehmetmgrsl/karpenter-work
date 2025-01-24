@@ -18,58 +18,190 @@
 - ![Karpenter](karpenter01.png)
 
 
-###  1. Create AWS VPC ( [00-05] terraform files)
+###  1. Set environment variables
 
-  - terraform init
-
-  - terraform apply
-
-###  2. Create EKS Cluster and a Node group ( [06-07] terraform files)
-
-  - terraform apply
-
-  - to connect to the cluster you need to update the Kubernetes context:
-
-
-     - aws eks update-kubeconfig --name test --region eu-west-1
-
-###  3. Create Karpenter Controller IAM Role ( [08-09] terraform files and controller-trust-policy.json file)
-
-  - terraform init
-
-  - terraform apply
-
-###  4. Deploy Karpenter to EKS ( [10] terraform file)
-
-  - terraform apply
-
-  - Check if the helm has been deployed successfully.
-
-     - 
-       ```
-       helm list -A
-       NAME     	NAMESPACE	REVISION	UPDATED                                 	STATUS  	CHART           	APP VERSION
-       karpenter	karpenter	1       	2023-10-13 16:08:27.073106337 +0200 CEST	deployed	karpenter-0.16.3	0.16.3
-       ```    
+```
+export KARPENTER_NAMESPACE="kube-system"
+export KARPENTER_VERSION="1.1.1"
+export K8S_VERSION="1.31"
+export AWS_PARTITION="aws" 
+export CLUSTER_NAME="eks-demo"
+export AWS_DEFAULT_REGION="eu-west-1"
+export AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+export TEMPOUT="$(mktemp)"
+export ARM_AMI_ID="$(aws ssm get-parameter --name /aws/service/eks/optimized-ami/${K8S_VERSION}/amazon-linux-2-arm64/recommended/image_id --query Parameter.Value --output text)"
+export AMD_AMI_ID="$(aws ssm get-parameter --name /aws/service/eks/optimized-ami/${K8S_VERSION}/amazon-linux-2/recommended/image_id --query Parameter.Value --output text)"
+export GPU_AMI_ID="$(aws ssm get-parameter --name /aws/service/eks/optimized-ami/${K8S_VERSION}/amazon-linux-2-gpu/recommended/image_id --query Parameter.Value --output text)"
+```
 
 
-###  5. Create Karpenter NodePool
+###  2. Create EKS Cluster 
+```
+curl -fsSL https://raw.githubusercontent.com/aws/karpenter-provider-aws/v"${KARPENTER_VERSION}"/website/content/en/preview/getting-started/getting-started-with-karpenter/cloudformation.yaml  > "${TEMPOUT}" \
+&& aws cloudformation deploy \
+  --stack-name "Karpenter-${CLUSTER_NAME}" \
+  --template-file "${TEMPOUT}" \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides "ClusterName=${CLUSTER_NAME}"
 
- ```kubectl apply -f nodepool.yaml```
+eksctl create cluster -f - <<EOF
+---
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: ${CLUSTER_NAME}
+  region: ${AWS_DEFAULT_REGION}
+  version: "${K8S_VERSION}"
+  tags:
+    karpenter.sh/discovery: ${CLUSTER_NAME}
 
+iam:
+  withOIDC: true
+  podIdentityAssociations:
+  - namespace: "${KARPENTER_NAMESPACE}"
+    serviceAccountName: karpenter
+    roleName: ${CLUSTER_NAME}-karpenter
+    permissionPolicyARNs:
+    - arn:${AWS_PARTITION}:iam::${AWS_ACCOUNT_ID}:policy/KarpenterControllerPolicy-${CLUSTER_NAME}
 
-###  6. Demo: Automatic Node Provisioning
+iamIdentityMappings:
+- arn: "arn:${AWS_PARTITION}:iam::${AWS_ACCOUNT_ID}:role/KarpenterNodeRole-${CLUSTER_NAME}"
+  username: system:node:{{EC2PrivateDNSName}}
+  groups:
+  - system:bootstrappers
+  - system:nodes
 
- ```kubectl apply -f deployment.yaml```
+managedNodeGroups:
+- instanceType: m4.large
+  amiFamily: AmazonLinux2
+  name: ${CLUSTER_NAME}-ng
+  desiredCapacity: 1
+  minSize: 1
+  maxSize: 2
 
-  - A new node that has 5 new pods will be created.
+addons:
+- name: eks-pod-identity-agent
+EOF
+
+export CLUSTER_ENDPOINT="$(aws eks describe-cluster --name "${CLUSTER_NAME}" --query "cluster.endpoint" --output text)"
+export KARPENTER_IAM_ROLE_ARN="arn:${AWS_PARTITION}:iam::${AWS_ACCOUNT_ID}:role/${CLUSTER_NAME}-karpenter"
+
+echo "${CLUSTER_ENDPOINT} ${KARPENTER_IAM_ROLE_ARN}"
+```
+
+###  2.1. Check:
+
+###  2.1.1. Run the following command and get the IAM role of the vpc-cni:
+
+```eksctl get addons --cluster eks-demo```
+
+Like: arn:aws:iam::<account-id>:role/<role_name>
+
+###  2.1.2. Run the following command to list all policies attached to the role:
+
+```aws iam list-attached-role-policies --role-name <role_name>```
+
+If AmazonEKS_CNI_Policy policy is not attached to the role, then run the following to attach the policy:
+
+``` 
+aws iam attach-role-policy \
+  --role-name <role_name> \
+  --policy-arn arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+```
+
+###  3. Install Karpenter NodePool
+
+ ```
+helm registry logout public.ecr.aws
+
+helm upgrade --install karpenter oci://public.ecr.aws/karpenter/karpenter --version "${KARPENTER_VERSION}" --namespace "${KARPENTER_NAMESPACE}" --create-namespace \
+  --set "settings.clusterName=${CLUSTER_NAME}" \
+  --set "settings.interruptionQueue=${CLUSTER_NAME}" \
+  --set controller.resources.requests.cpu=1 \
+  --set controller.resources.requests.memory=1Gi \
+  --set controller.resources.limits.cpu=1 \
+  --set controller.resources.limits.memory=1Gi \
+  --wait
+ ```
+###  4. Create NodePool
+
+```
+cat <<EOF | envsubst | kubectl apply -f -
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: default
+spec:
+  template:
+    spec:
+      requirements:
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot", "on-demand"]
+        - key: karpenter.k8s.aws/instance-category
+          operator: In
+          values: ["c", "m", "r"]
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: default
+      expireAfter: 720h # 30 * 24h = 720h
+  limits:
+    cpu: 200
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 1m
+---
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  amiFamily: AL2 # Amazon Linux 2
+  role: "KarpenterNodeRole-${CLUSTER_NAME}" # replace with your cluster name
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "${CLUSTER_NAME}" # replace with your cluster name
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "${CLUSTER_NAME}" # replace with your cluster name
+  amiSelectorTerms:
+    - id: "${ARM_AMI_ID}"
+    - id: "${AMD_AMI_ID}"
+EOF
+```
+
+###  5. Demo: Automatic Node Provisioning
+
+ - ```kubectl apply -f deployment.yaml```
+
+- ```kubectl scale deployment nginx-deployment --replicas 10```
+
+- ```kubectl scale deployment nginx-deployment --replicas 20```
+
+- ```kubectl scale deployment nginx-deployment --replicas 1```
+
+- ```kubectl scale deployment nginx-deployment --replicas 0```
 
 ###  7. After the tests - Delete all the AWS Resources that we have created
 
-  - terraform plan -destroy
+  - kubectl delete node "${NODE_NAME}"
 
-  - terraform apply -destroy
-
+ ```
+helm uninstall karpenter --namespace "${KARPENTER_NAMESPACE}"
+aws cloudformation delete-stack --stack-name "Karpenter-${CLUSTER_NAME}"
+aws ec2 describe-launch-templates --filters "Name=tag:karpenter.k8s.aws/cluster,Values=${CLUSTER_NAME}" |
+    jq -r ".LaunchTemplates[].LaunchTemplateName" |
+    xargs -I{} aws ec2 delete-launch-template --launch-template-name {}
+eksctl delete cluster --name "${CLUSTER_NAME}"
+ ```
+ 
 ### EKS Node Viewer (9*)
 
 - eks-node-viewer is a tool for visualizing dynamic node usage within a cluster. 
