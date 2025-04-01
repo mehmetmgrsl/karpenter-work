@@ -12,17 +12,17 @@
 
 - ![How It works](howitworks.png) (8*)
 
-
-### Karpenter YAMLs (10*)
-
-- ![Karpenter](karpenter01.png)
+- ![How It works](karpenter.png) (11*)
 
 
-###  1. Set environment variables
+### Installation and Demo
+
+
+####  1. Set environment variables
 
 ```
 export KARPENTER_NAMESPACE="kube-system"
-export KARPENTER_VERSION="1.1.1"
+export KARPENTER_VERSION="1.2.1"
 export K8S_VERSION="1.31"
 export AWS_PARTITION="aws" 
 export CLUSTER_NAME="eks-demo"
@@ -35,7 +35,7 @@ export GPU_AMI_ID="$(aws ssm get-parameter --name /aws/service/eks/optimized-ami
 ```
 
 
-###  2. Create EKS Cluster 
+####  2. Create EKS Cluster 
 ```
 curl -fsSL https://raw.githubusercontent.com/aws/karpenter-provider-aws/v"${KARPENTER_VERSION}"/website/content/en/preview/getting-started/getting-started-with-karpenter/cloudformation.yaml  > "${TEMPOUT}" \
 && aws cloudformation deploy \
@@ -87,17 +87,18 @@ export CLUSTER_ENDPOINT="$(aws eks describe-cluster --name "${CLUSTER_NAME}" --q
 export KARPENTER_IAM_ROLE_ARN="arn:${AWS_PARTITION}:iam::${AWS_ACCOUNT_ID}:role/${CLUSTER_NAME}-karpenter"
 
 echo "${CLUSTER_ENDPOINT} ${KARPENTER_IAM_ROLE_ARN}"
+
 ```
 
-###  2.1. Check:
+####  2.1. Check:
 
-###  2.1.1. Run the following command and get the IAM role of the vpc-cni:
+#####  2.1.1. Run the following command and get the IAM role of the vpc-cni:
 
-```eksctl get addons --cluster eks-demo```
+```eksctl get addons --cluster $CLUSTER_NAME```
 
 Like: arn:aws:iam::<account-id>:role/<role_name>
 
-###  2.1.2. Run the following command to list all policies attached to the role:
+#####  2.1.2. Run the following command to list all policies attached to the role:
 
 ```aws iam list-attached-role-policies --role-name <role_name>```
 
@@ -105,11 +106,11 @@ If AmazonEKS_CNI_Policy policy is not attached to the role, then run the followi
 
 ``` 
 aws iam attach-role-policy \
-  --role-name <role_name> \
+  --role-name  arn:aws:iam::637423429881:role/eksctl-eks-demo-1-addon-vpc-cni-Role1-zSsBzT6TU7SV \
   --policy-arn arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
 ```
 
-###  3. Install Karpenter NodePool
+####  3. Install Karpenter NodePool
 
  ```
 helm registry logout public.ecr.aws
@@ -123,7 +124,7 @@ helm upgrade --install karpenter oci://public.ecr.aws/karpenter/karpenter --vers
   --set controller.resources.limits.memory=1Gi \
   --wait
  ```
-###  4. Create NodePool
+####  4. Create NodePool
 
 ```
 cat <<EOF | envsubst | kubectl apply -f -
@@ -177,7 +178,7 @@ spec:
 EOF
 ```
 
-###  5. Demo: Automatic Node Provisioning
+####  5. Demo: Automatic Node Provisioning
 
  - ```kubectl apply -f deployment.yaml```
 
@@ -189,18 +190,9 @@ EOF
 
 - ```kubectl scale deployment nginx-deployment --replicas 0```
 
-###  7. After the tests - Delete all the AWS Resources that we have created
+#### EKS Node Viewer (9*)
 
- ```
-helm uninstall karpenter --namespace "${KARPENTER_NAMESPACE}"
-aws cloudformation delete-stack --stack-name "Karpenter-${CLUSTER_NAME}"
-aws ec2 describe-launch-templates --filters "Name=tag:karpenter.k8s.aws/cluster,Values=${CLUSTER_NAME}" |
-    jq -r ".LaunchTemplates[].LaunchTemplateName" |
-    xargs -I{} aws ec2 delete-launch-template --launch-template-name {}
-eksctl delete cluster --name "${CLUSTER_NAME}"
- ```
- 
-### EKS Node Viewer (9*)
+- You can use eks-node-viewer to visualize node usage and how pods are scheduled in the cluster. 
 
 - eks-node-viewer is a tool for visualizing dynamic node usage within a cluster. 
   - It displays the scheduled pod resource requests vs the allocatable capacity on the node. 
@@ -212,6 +204,20 @@ eksctl delete cluster --name "${CLUSTER_NAME}"
 
 - Usage
   - eks-node-viewer
+
+####  7. After the tests - Delete all the AWS Resources that we have created
+
+*!!! DO NOT FORGET to clean up your AWS resources after testing to avoid unnecessary costs.*
+
+```  
+helm uninstall karpenter --namespace "${KARPENTER_NAMESPACE}"
+aws cloudformation delete-stack --stack-name "Karpenter-${CLUSTER_NAME}"
+aws ec2 describe-launch-templates --filters "Name=tag:karpenter.k8s.aws/cluster,Values=${CLUSTER_NAME}" |
+    jq -r ".LaunchTemplates[].LaunchTemplateName" |
+    xargs -I{} aws ec2 delete-launch-template --launch-template-name {}
+eksctl delete cluster --name "${CLUSTER_NAME}"
+ ```
+ 
 
 
 ### Resources
@@ -234,3 +240,5 @@ eksctl delete cluster --name "${CLUSTER_NAME}"
 9* https://github.com/awslabs/eks-node-viewer
 
 10* [Karpenter for Kubernetes Tutorial with Demo - Cloud with Raj](https://www.youtube.com/watch?v=cc2leue9P3s)
+
+11* https://aircall.io/blog/tech-team-stories/scale-karpenter-zero-optimize-costs/
