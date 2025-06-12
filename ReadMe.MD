@@ -10,7 +10,8 @@
 
 - Karpenter actively monitors free Node capacity, rescheduling existing Pods to minimize the provisioned Node capacity.
 
-- ![How It works](howitworks.png) (8*)
+- ![How It works](karpenter-01.png) (8*)
+
 
 - ![How It works](karpenter.png) (11*)
 
@@ -217,7 +218,48 @@ aws ec2 describe-launch-templates --filters "Name=tag:karpenter.k8s.aws/cluster,
     xargs -I{} aws ec2 delete-launch-template --launch-template-name {}
 eksctl delete cluster --name "${CLUSTER_NAME}"
  ```
- 
+
+##  EKS with Self-Managed Karpenter vs EKS Auto Mode (12*)
+
+- ![EKS K8S Cluster](karpenter-02.png)
+  - Before deploying your workload, you are responsible for:
+    - Installing and managing necessary Kubernetes add-ons (e.g., CoreDNS, kube-proxy).
+    - Managing the worker nodes, including selecting the appropriate Amazon Machine Image (AMI) version for compatibility.
+  - When upgrading the control plane:
+    - After AWS upgrades the control plane, you must manually test and upgrade both the add-ons and the worker node AMIs to ensure compatibility and cluster stability.
+- With EKS Auto Mode:
+  - These operational responsibilities (add-on management, AMI selection, and worker node lifecycle) are fully handled by AWS), allowing you to focus on your applications instead of infrastructure management.
+  - ![EKS Auto Mode](karpenter-03.png)
+
+- In EKS Auto, workloads run on AWS managed EC2 instances using a specialized AMI (Bottlerocket AMI). 
+  - ![EKS Auto Mode](karpenter-04.png)
+- This Auto Mode Managed AMI comes with several critical Kubernetes components pre-installed and tightly integrated into the system image.
+  - (i.e pod Identity, core DNS , VPC CNI etc)
+- In these components do not run as a DeamonSet, they run systemd processes. These make them little bit lightweigjt and more scalable.
+- Unlike traditional EKS setups, where such components often run as DaemonSets, in EKS Auto mode they operate as systemd services directly on the host OS. This design:
+ - Improves startup time
+ - Enhances scalability
+
+
+| Feature                                           | EKS with Self-Managed Karpenter                                  | EKS Auto                                                                 |
+|---------------------------------------------------|------------------------------------------------------------------|--------------------------------------------------------------------------|
+| Karpenter & Addons Management                    | You manage Karpenter and other addons                           | AWS manages Karpenter and core addons (EBS CSI, LB Controller)           |
+| Worker Node Management                           | You manage worker nodes                                         | AWS manages worker nodes                                                 |
+| AMI Options                                      | Can use any EKS Optimized or custom AMIs                        | Bottlerocket AMI is used                                                 |
+| Worker Node Lifecycle                            | Run indefinitely (not recommended) or choose custom hours/days  | Worker nodes will recycle after max 21 days (default 14)                |
+| Rightsizing & Cost Optimization                  | Automatically rightsizes and optimizes cost                     | Automatically rightsizes and optimizes cost                              |
+| Data Plane & Addon Upgrade                       | You decide when to upgrade; need to test and update addons      | AWS automatically upgrades data plane and updates working addons         |
+| Cost                                             | No additional cost, OSS Karpenter is free                       | Additional 12% On-Demand EC2 cost                                        |
+
+
+### When to Use: EKS with Self-Managed Karpenter vs EKS Auto
+
+| Criteria / Use Case                                                                 | EKS with Self-Managed Karpenter                                 | EKS Auto                                                                 |
+|-------------------------------------------------------------------------------------|------------------------------------------------------------------|--------------------------------------------------------------------------|
+| Kubernetes Knowledge                                                                | Have in-house Karpenter knowledge                               | No need for in-house Karpenter knowledge                                 |
+| Platform Team Availability                                                          | Have a platform team to manage cluster and addons               | No platform team needed; focus on delivering business value              |
+| AMI and Node Expiry Requirements                                                    | Require custom AMI or non-expiring worker nodes                 | No nuanced requirements for custom AMI or non-expiring worker nodes      |
+| Speed to Market                                                                     | Not focused on immediate go-to-market                           | Want to go to market as fast as possible with Kubernetes                 |
 
 
 ### Resources
@@ -242,3 +284,5 @@ eksctl delete cluster --name "${CLUSTER_NAME}"
 10* [Karpenter for Kubernetes Tutorial with Demo - Cloud with Raj](https://www.youtube.com/watch?v=cc2leue9P3s)
 
 11* https://aircall.io/blog/tech-team-stories/scale-karpenter-zero-optimize-costs/
+
+12* [Kubernetes Karpenter Vs AWS EKS Auto - Cloud With Raj](https://www.youtube.com/watch?v=WtL6WHQldYc)
